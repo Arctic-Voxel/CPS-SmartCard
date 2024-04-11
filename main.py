@@ -1,12 +1,12 @@
-from smartcard.System import readers
-from smartcard.util import toHexString
+# from smartcard.System import readers
+# from smartcard.util import toHexString
 
-# MIFARE Ultralight commands
-CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
+# # MIFARE Ultralight commands
+# CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
 
-CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
+# CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
 
-CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
+# CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 
 
 # Function to send APDU commands to the card
@@ -77,6 +77,56 @@ def main():
         print("Failed to retrieve UID.")
     # Disconnect from the reader
     connection.disconnect()
+# ====================================================== User Functions ===========================================================
+def initialise():
+    return "Initialised"
+
+
+def topUp():
+    balance = 0
+    message = "Card Top Up Successful, balance is ${balance}".format(balance = balance)
+    return message
+
+def checkBalance():
+    balance = 0
+    message = "Your Card Balance is ${balance}".format(balance = balance)
+    return message
+
+def debitTransaction():
+    amount = 0
+    message = "Transaction successful, ${amount} has been deducted from your card".format(amount = amount)
+    return message
+
+# ======================================================= Main Function =============================================================
+def main():
+    print("Welcome to the MIFARE UI \nPlease Select your choice")
+  
+    ## Read Smart Card
+    
+    while True:
+        print("============================================")
+        print("Choice 1: Intitialize new card")
+        print("Choice 2: Top-up card")
+        print("Choice 3: Check Balance")
+        print("Choice 4: Debit Transaction")
+        print("Choice 5: Exit \n")
+        userChoice = int(input("Enter your choice: "))
+        print("")
+        match userChoice:
+            case 1:
+                initialise()
+                
+            case 2:
+                topUp()
+            case 3:
+                checkBalance()
+            case 4:
+                debitTransaction()
+            case 5:
+                print("Bye Bye")
+                break
+            case _:
+                print("Invalid Input, please try again")
 
 
 if __name__ == "__main__":
