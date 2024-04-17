@@ -1,12 +1,15 @@
-# from smartcard.System import readers
-# from smartcard.util import toHexString
+import smartcard.System
+from smartcard.System import readers
+from smartcard.util import toHexString
+from smartcard.Exceptions import *
 
-# # MIFARE Ultralight commands
-# CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
+READER_NAMES = ['HID Global OMNIKEY', 'Reader PICC']
+# MIFARE Classic commands
+CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
 
-# CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
+CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
 
-# CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
+CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 
 
 # Function to send APDU commands to the card
@@ -77,6 +80,8 @@ def main():
         print("Failed to retrieve UID.")
     # Disconnect from the reader
     connection.disconnect()
+
+
 # ====================================================== User Functions ===========================================================
 def initialise():
     return "Initialised"
@@ -84,28 +89,56 @@ def initialise():
 
 def topUp():
     balance = 0
-    message = "Card Top Up Successful, balance is ${balance}".format(balance = balance)
+    message = "Card Top Up Successful, balance is ${balance}".format(balance=balance)
     return message
+
 
 def checkBalance():
     balance = 0
-    message = "Your Card Balance is ${balance}".format(balance = balance)
+    message = "Your Card Balance is ${balance}".format(balance=balance)
     return message
+
 
 def debitTransaction():
     amount = 0
-    message = "Transaction successful, ${amount} has been deducted from your card".format(amount = amount)
+    message = "Transaction successful, ${amount} has been deducted from your card".format(amount=amount)
     return message
+
+
+def init_reader():
+    # Check reader
+    card_readers = readers()
+
+    if not card_readers:
+        print("No smart card readers found.")
+        exit()
+    for reader in card_readers:
+        print(f'Card reader detected: {str(reader).rjust(45)}')
+    for each in card_readers:
+        if any(defined_reader in str(each) for defined_reader in READER_NAMES):
+            print(f'Connected to {each}.')
+            return each
+    exit('No compatible readers found from reader list. Closing the program.')
+
+
+def print_atr(reader):
+    connection = reader.createConnection()
+    try:
+        connection.connect()
+        print(toHexString(connection.getATR()))
+    except NoCardException:
+        print("No card found.")
+
 
 # ======================================================= Main Function =============================================================
 def main():
-    print("Welcome to the MIFARE UI \nPlease Select your choice")
-  
-    ## Read Smart Card
-    
+    reader = init_reader()
+    #print_atr(reader)
+
+    print("\nWelcome to the MIFARE UI \nPlease Select your choice")
     while True:
-        print("============================================")
-        print("Choice 1: Intitialize new card")
+        print("=" * 30)
+        print("Choice 1: Initialize card")
         print("Choice 2: Top-up card")
         print("Choice 3: Check Balance")
         print("Choice 4: Debit Transaction")
@@ -115,7 +148,6 @@ def main():
         match userChoice:
             case 1:
                 initialise()
-                
             case 2:
                 topUp()
             case 3:
@@ -123,7 +155,7 @@ def main():
             case 4:
                 debitTransaction()
             case 5:
-                print("Bye Bye")
+                print("Thank you for using CPS Smart Card!")
                 break
             case _:
                 print("Invalid Input, please try again")

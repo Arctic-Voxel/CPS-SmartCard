@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.8 (CPS_Card)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.8 (CPS_Card)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12" project-jdk-type="Python SDK" />
 </project>
