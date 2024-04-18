@@ -1,14 +1,16 @@
-import smartcard.System
 from smartcard.System import readers
 from smartcard.util import toHexString
 from smartcard.Exceptions import *
 
 READER_NAMES = ['HID Global OMNIKEY', 'Reader PICC']
 # MIFARE Classic commands
+# CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
+# CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
+# CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
-
-CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
-
+CMD_GET_PURSE_FILE = [0xFF, 0xB0, 0x00, 0x00, 0x10]
+CMD_AUTH_BLOCK = [0xFF, 0x86, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x60, 0x00]
+CMD_LOAD_KEY = [0xFF, 0x82, 0x20, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 
 
@@ -93,7 +95,24 @@ def topUp():
     return message
 
 
-def checkBalance():
+def checkBalance(reader):
+    connection = reader.createConnection()
+    try:
+        connection.connect()
+        response, status_code = send_apdu(connection, CMD_LOAD_KEY)
+        response, status_code = send_apdu(connection, CMD_AUTH_BLOCK)
+        response, status_code = send_apdu(connection, CMD_GET_PURSE_FILE)
+    except NoCardException:
+        print("No smart card found.")
+        return None
+    if status_code == "SW1: 90, SW2: 00":
+        # Extract UID from the response
+        #uid = response[:-4]
+        uid = response
+        print("Response:", uid)
+        print_cepas_value(response)
+    else:
+        print("Failed to retrieve UID.")
     balance = 0
     message = "Your Card Balance is ${balance}".format(balance=balance)
     return message
@@ -133,7 +152,7 @@ def print_atr(reader):
 # ======================================================= Main Function =============================================================
 def main():
     reader = init_reader()
-    #print_atr(reader)
+    # print_atr(reader)
 
     print("\nWelcome to the MIFARE UI \nPlease Select your choice")
     while True:
@@ -151,7 +170,7 @@ def main():
             case 2:
                 topUp()
             case 3:
-                checkBalance()
+                checkBalance(reader)
             case 4:
                 debitTransaction()
             case 5:
