@@ -4,15 +4,12 @@ from smartcard.Exceptions import *
 
 READER_NAMES = ['HID Global OMNIKEY', 'Reader PICC']
 # MIFARE Classic commands
-# CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
-# CMD_GET_PURSE_FILE = [0x90, 0x32, 0x03, 0x00, 0x00]
-# CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
-CMD_GET_UID = [0x00, 0x00, 0x00, 0x00, 0x00]
-CMD_GET_PURSE_FILE = [0xFF, 0xB0, 0x00, 0x00, 0x10]
-CMD_AUTH_BLOCK = [0xFF, 0x86, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x60, 0x00]
-CMD_LOAD_KEY = [0xFF, 0x82, 0x20, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+CMD_GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
+CMD_GET_PURSE_FILE = [0xFF, 0xB0, 0x00, 0x04, 0x00]
+CMD_AUTH_BLOCK = [0xFF, 0x86, 0x00, 0x00, 0x05, 0x01, 0x00, 0x04, 0x60, 0x00]
+CMD_LOAD_KEY = [0xFF, 0x82, 0x00, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
-
+CMD_WRITE_INIT=[0xFF, 0xD6, 0x00, 0x08, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x08, 0xF7, 0x08, 0xF7]
 
 # Function to send APDU commands to the card
 def send_apdu(connection, apdu_cmd):
@@ -85,7 +82,20 @@ def main():
 
 
 # ====================================================== User Functions ===========================================================
-def initialise():
+def initialise(reader):
+    connection = reader.createConnection()
+    try:
+        connection.connect()
+        send_apdu(connection, CMD_LOAD_KEY)
+        send_apdu(connection, CMD_AUTH_BLOCK)
+        response, status_code = send_apdu(connection, CMD_GET_PURSE_FILE)
+        print(response)
+    except NoCardException:
+        print("No smart card found.")
+        return None
+    except CardConnectionException:
+        print("Card reader cannot be found, please check connection of card reader.")
+        return None
     return "Initialised"
 
 
@@ -105,11 +115,11 @@ def checkBalance(reader):
     except NoCardException:
         print("No smart card found.")
         return None
+    except CardConnectionException:
+        print("Card reader cannot be found, please check connection of card reader.")
+        return None
     if status_code == "SW1: 90, SW2: 00":
         # Extract UID from the response
-        #uid = response[:-4]
-        uid = response
-        print("Response:", uid)
         print_cepas_value(response)
     else:
         print("Failed to retrieve UID.")
@@ -166,7 +176,7 @@ def main():
         print("")
         match userChoice:
             case 1:
-                initialise()
+                initialise(reader)
             case 2:
                 topUp()
             case 3:
