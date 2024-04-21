@@ -164,7 +164,7 @@ def main():
     reader = init_reader()
     # print_atr(reader)
 
-    print("\nWelcome to the MIFARE UI \nPlease Select your choice")
+    print("\nWelcome to the Override UI menu \nPlease Select your choice")
     while True:
         print("=" * 30)
         print("Choice 1: Initialize card")
@@ -174,7 +174,7 @@ def main():
         print("Choice 5: Exit Station")
         print("Choice 6: View Transaction Log")
         print("")
-        print("Choice 6: Exit \n")
+        print("Choice 7: Exit \n")
         userChoice = int(input("Enter your choice: "))
         print("")
         match userChoice:
@@ -185,8 +185,12 @@ def main():
             case 3:
                 checkBalance(reader)
             case 4:
-                debitTransaction()
+                pass
             case 5:
+                pass
+            case 6:
+                pass
+            case 7:
                 print("Thank you for using CPS Smart Card!")
                 break
             case _:
