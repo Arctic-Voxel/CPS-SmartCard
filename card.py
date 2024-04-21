@@ -12,6 +12,57 @@ CMD_LOAD_KEY = [0xFF, 0x82, 0x00, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 CMD_WRITE_INIT = [0xFF, 0xD6, 0x00, 0x08, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
                   0x08, 0xF7, 0x08, 0xF7]
+STATION_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+MAX_FARE_LOOKUP = {'A': 680, 'B': 590, 'C': 510, 'D': 480, 'E': 380, 'F': 420, 'G': 570, 'H': 680}
+FARE_LOOKUP = {'A': 90, 'B': 80, 'C': 30, 'D': 100, 'E': 120, 'F': 150, 'G': 110, 'H': 0}
+REVERSE_FARE_LOOKUP = {'H': 110, 'G': 150, 'F': 120, 'E': 100, 'D': 30, 'C': 80, 'B': 90, 'A': 0}
+
+
+def get_station_letter():
+    try:
+        with open("Bus_Station.txt", 'r') as station_doc:
+            station = station_doc.read()
+            if station.upper() in STATION_NAMES:
+                return station
+            else:
+                exit("Unable to gather station name.")
+    except FileNotFoundError:
+        with open("Bus_Station.txt", 'x'):
+            pass
+        exit("File either unreadable or not found. Creating file, please ensure it contains a station name A to H.")
+
+
+def tap_in_fare_value(station):
+    fare = MAX_FARE_LOOKUP[station]
+    return fare
+
+
+def find_used_fare(source_station, dest_station):
+    fare = 0
+    if source_station == dest_station:
+        fare = MAX_FARE_LOOKUP[source_station]
+        return fare
+    if source_station < dest_station:
+        stations = list(FARE_LOOKUP)
+        source_index = stations.index(source_station)
+        dest_index = stations.index(dest_station)
+        for station in stations[source_index: dest_index]:
+            fare += FARE_LOOKUP[station]
+        return fare
+    if dest_station < source_station:
+        stations = list(REVERSE_FARE_LOOKUP)
+        source_index = stations.index(source_station)
+        dest_index = stations.index(dest_station)
+        for station in stations[source_index: dest_index]:
+            fare += REVERSE_FARE_LOOKUP[station]
+        return fare
+
+
+def tap_out_fare_refund_value(source_station, dest_station):
+    debited = tap_in_fare_value(source_station)
+    used = find_used_fare(source_station, dest_station)
+    refund = debited - used
+    return refund
 
 
 def send_apdu(connection, apdu_cmd):
