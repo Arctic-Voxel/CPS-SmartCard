@@ -5,7 +5,6 @@ from smartcard.Exceptions import *
 
 READER_NAMES = ['HID Global OMNIKEY', 'Reader PICC']
 # MIFARE Classic commands
-CMD_GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
 CMD_GET_PURSE_FILE = [0xFF, 0xB0, 0x00, 0x04, 0x00]
 CMD_AUTH_BLOCK = [0xFF, 0x86, 0x00, 0x00, 0x05, 0x01, 0x00, 0x04, 0x60, 0x00]
 CMD_LOAD_KEY = [0xFF, 0x82, 0x00, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
@@ -19,6 +18,7 @@ REVERSE_FARE_LOOKUP = {'H': 110, 'G': 150, 'F': 120, 'E': 100, 'D': 30, 'C': 80,
 
 
 def get_station_letter():
+    """ Returns the station letter found in the text document, else create a blank text file. Includes edge cases regarding file and invalid station names. """
     try:
         with open("Bus_Station.txt", 'r') as station_doc:
             station = station_doc.read()
@@ -32,12 +32,27 @@ def get_station_letter():
         exit("File either unreadable or not found. Creating file, please ensure it contains a station name A to H.")
 
 
+def get_top_value():
+    """ Returns the top value found in the text document, else create a blank text file. Includes edge cases regarding file and invalid characters. """
+    try:
+        with open("top_up_value.txt", 'r') as top_up_doc:
+            top_up = top_up_doc.read()
+            if top_up.isdigit():
+                return int(top_up)
+    except FileNotFoundError:
+        with open("top_up_value.txt", 'x'):
+            pass
+        exit("File either unreadable or not found. Creating file, please ensure it contains a top up value integer.")
+
+
 def tap_in_fare_value(station):
+    """ Return the maximum fare to be charged based on the station. """
     fare = MAX_FARE_LOOKUP[station]
     return fare
 
 
 def find_used_fare(source_station, dest_station):
+    """ Gets and return the fare value used based on source to destination stations. """
     fare = 0
     if source_station == dest_station:
         fare = MAX_FARE_LOOKUP[source_station]
@@ -59,6 +74,7 @@ def find_used_fare(source_station, dest_station):
 
 
 def tap_out_fare_refund_value(source_station, dest_station):
+    """ Get the refund value needed based on provided stations. """
     debited = tap_in_fare_value(source_station)
     used = find_used_fare(source_station, dest_station)
     refund = debited - used
@@ -117,6 +133,7 @@ def init_reader():
 
 
 def checkBalance(reader):
+    """ Read value of fourth sector. """
     connection = reader.createConnection()
     try:
         connection.connect()
@@ -134,14 +151,16 @@ def checkBalance(reader):
         print_cepas_value(response)
     else:
         print("Failed to retrieve UID.")
-    balance = 0
-    message = "Your Card Balance is ${balance}".format(balance=balance)
-    return message
+        exit()
+
+
+def top_up(value):
+    hex_value = hex(value)
+    print(hex_value)
 
 
 def main():
     reader = init_reader()
-    # print_atr(reader)
 
     print("\nWelcome to the Override UI menu \nPlease Select your choice")
     while True:
@@ -188,3 +207,9 @@ args = parser.parse_args()
 
 if args.CLI:
     main()
+
+if args.tap_in:
+    station = get_station_letter()
+    fare = MAX_FARE_LOOKUP[station]
+
+top_up(15)
