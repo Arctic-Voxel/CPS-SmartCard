@@ -11,7 +11,8 @@ CMD_AUTH_BLOCK_LAST_TRANSACTION = [0xFF, 0x86, 0x00, 0x00, 0x05, 0x01, 0x00, 0x0
 CMD_LOAD_KEY = [0xFF, 0x82, 0x20, 0x00, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 CMD_GET_TRANSACTION_LOG = [0x90, 0x32, 0x03, 0x00, 0x01, 0x00, 0x00]
 CMD_WRITE_INIT = [0xFF, 0xD6, 0x00, 0x08, 0x10, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x08, 0xF7, 0x08, 0xF7]  # block 8
-CMD_WRITE_INIT_TRANSACT = [0xFF, 0xD6, 0x00, 0x08, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]  # block 9
+CMD_WRITE_INIT_TRANSACT = [0xFF, 0xD6, 0x00, 0x08, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                           0x00]  # block 9
 STATION_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 MAX_FARE_LOOKUP = {'A': 680, 'B': 590, 'C': 510, 'D': 480, 'E': 380, 'F': 420, 'G': 570, 'H': 680}
 FARE_LOOKUP = {'A': 90, 'B': 80, 'C': 30, 'D': 100, 'E': 120, 'F': 150, 'G': 110, 'H': 0}
@@ -109,6 +110,7 @@ def initialise(reader):
         send_apdu(connection, CMD_AUTH_BLOCK)  # Authenticating Block 8
         send_apdu(connection, CMD_WRITE_INIT)  # Write 0 in value format for block 8
         response, status_code = send_apdu(connection, CMD_GET_PURSE_FILE)  # Getting Purse Value
+        print(response, status_code)
         print_cepas_value(response)  # Printing value of purse
     except NoCardException:
         print("No smart card found.")
@@ -211,6 +213,15 @@ def get_topup_input(max_value):
     return top_up_value
 
 
+def get_station_input():
+    valid_station_input = False
+    chosen_station = input("Please enter the station you wish to use: ")
+    if station in STATION_NAMES:
+        return station
+    else:
+        return None
+
+
 def max_top_up_value(reader):
     current_value = check_balance(reader)
     current_value = current_value.split(' ')
@@ -250,9 +261,17 @@ def main():
             case 3:
                 check_balance(reader)
             case 4:
-                pass
+                tap_in_station = get_station_input()
+                if tap_in_station:
+                    pass
+                else:
+                    print("Invalid station name provided.")
             case 5:
-                pass
+                tap_out_station = get_station_input()
+                if tap_out_station:
+                    pass
+                else:
+                    print("Invalid station name provided.")
             case 6:
                 pass
             case 7:
@@ -282,6 +301,10 @@ if args.tap_in:
     station = get_station_letter_textfile_value()
     fare = MAX_FARE_LOOKUP[station]
 
+if args.tap_out:
+    station = get_station_letter_textfile_value()
+
 if args.CLI:
     main()
 
+main()
