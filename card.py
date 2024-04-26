@@ -517,6 +517,7 @@ def main():
         print("Choice 7: Exit \n")
         user_choice = input("Enter your choice: ")
         print("")
+
         match user_choice:
             case '1':
                 initialise(reader)
@@ -623,8 +624,10 @@ args = parser.parse_args()
 
 # Argparse logic
 reader = init_reader()
+
 if args.new:
     initialise(reader)
+
 if args.topup:
     top_up_value = get_topup_textfile_value()
     max_value_for_top = max_top_up_value(reader)
@@ -632,15 +635,83 @@ if args.topup:
         top_up(reader, top_up_value)
     else:
         print(f"Unable to top up amount. Value exceeds limit. You may only top you {max_value_for_top}.")
+
 if args.balance:
     check_balance(reader)
+
 if args.tap_in:
-    station = get_station_letter_textfile_value()
-    fare = MAX_FARE_LOOKUP[station]
+    args_tap_in_station = get_station_letter_textfile_value()
+    if args_tap_in_station:
+        charge_fare = get_max_tap_in_fare_value(args_tap_in_station)
+        balance = process_value(check_balance(reader))
+        print(f'Card fare is: ${charge_fare / 100:.2f}')
+        if balance < (charge_fare / 100):
+            print(
+                f"Your card balance is insufficient to start a journey on this station. Please top up ${((charge_fare / 100) - balance):.2f}.")
+        else:
+            verified_status = verify_transaction_history(reader)
+            if verified_status == 'empty':
+                debit(reader, charge_fare)
+                write_transaction_history(reader, 'tap in', charge_fare, args_tap_in_station)
+            elif verified_status == 'valid':
+                transaction_action, transaction_fare, transaction_station, epoch_decimal = get_transaction(
+                    reader)
+                if transaction_action == 'tap out':
+                    print("Double debit detected, last full fare charged, continuing transaction.")
+                    debit(reader, charge_fare)
+                    write_transaction_history(reader, 'tap in', charge_fare, args_tap_in_station)
+                if transaction_action == 'tap in':
+                    debit(reader, charge_fare)
+                    write_transaction_history(reader, 'tap in', charge_fare, args_tap_in_station)
+            else:
+                print("Card tampering or tearing detected. Please reinitialize card.")
+
+if args.transactions:
+    verified_status = verify_transaction_history(reader)
+    if verified_status == 'empty':
+        pass
+    elif verified_status == 'valid':
+        transaction_action, transaction_fare, transaction_station, epoch_decimal = get_transaction(
+            reader)
+        print(
+            f"The last transaction was a {transaction_action} of ${transaction_fare / 100:.2f} at station {transaction_station} around {GMT_8.localize(dt.datetime.fromtimestamp(epoch_decimal))}.")
 
 if args.tap_out:
-    station = get_station_letter_textfile_value()
-
+    args_tap_out_station = get_station_letter_textfile_value()
+    if args_tap_out_station:
+        balance = process_value(check_balance(reader))
+        verified_status = verify_transaction_history(reader)
+        if verified_status == 'empty':
+            print("No record found charging maximum possible fare if possible.")
+            max_possible_fare = get_max_tap_in_fare_value(args_tap_out_station) / 100
+            if balance > max_possible_fare:
+                debit(reader, int(max_possible_fare) * 100)
+                print("Logging as 0 credit for tap out.")
+                write_transaction_history(reader, 'tap out', 0, args_tap_out_station)
+            else:
+                print("Please proceed to counter for assistance.")
+        if verified_status == 'valid':
+            transaction_action, transaction_fare, transaction_station, epoch_decimal = get_transaction(
+                reader)
+            if transaction_action == 'tap out':
+                print("Tap in not found, charging maximum possible fare if possible.")
+                max_possible_fare = get_max_tap_in_fare_value(args_tap_out_station) / 100
+                if balance > max_possible_fare:
+                    debit(reader, int(max_possible_fare) * 100)
+                    print("Logging as 0 credit for tap out.")
+                    write_transaction_history(reader, 'tap out', 0, args_tap_out_station)
+                else:
+                    print("Please proceed to counter for assistance.")
+            if transaction_action == 'tap in':
+                print("Tap in found, refunding unused fare.")
+                fare_used = find_used_fare(transaction_station, args_tap_out_station)
+                refund_val = tap_out_fare_refund_value(transaction_station, args_tap_out_station)
+                print(f"Actual fare cost: ${fare_used / 100:.2f}. Refund value: ${refund_val / 100:.2f}")
+                if refund_val > (4294967295 - balance):
+                    print("Card value is maxed. Unable to credit refund.")
+                else:
+                    top_up(reader, int(refund_val))
+                    write_transaction_history(reader, 'tap out', int(refund_val), args_tap_out_station)
 if args.CLI:
     main()
 
