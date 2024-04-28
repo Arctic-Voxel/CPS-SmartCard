@@ -3,20 +3,21 @@
 
 # https://trinket.io/embed/python3
 
-import random
-import matplotlib.pyplot as plot
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import os
-import scipy
-def hw(int_no):
-    # Write Code to calculate the number of ones in a byte...
-    c = 0
-    while(int_no):
-        int_no &= (int_no - 1)
-        c += 1
-    return c
+import scipy,os
+import scipy.stats
 
+# Hamming Weight: Number of ones in a byte
+def hw(int_no):
+    count = 0
+    while int_no:
+        count += int_no & 1
+        int_no >>= 1
+    return count
+
+# Pre-defined everywhere
 Sbox = (
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
     0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
@@ -35,142 +36,72 @@ Sbox = (
     0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
     0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16,
 )
-# =========To Change to read the first bytes from waveform============
-# Here, we generate random values for first byte of plaintext...
-#  This is the array containing first byte of all the plaintexts...
-# print(os.getcwd())
+
+# Read the waveform file to get relevant data
 waveformFile = pd.read_csv("waveform.csv",index_col=None,header=None)
 no_of_traces = waveformFile.shape[0]
-firstBytes = []
 plaintextRow = waveformFile.iloc[:,0]
-print(plaintextRow)
-for index in range(0,no_of_traces):
-    firstBytes.append(int(plaintextRow[index][0],16))
+keyByteRow = waveformFile.iloc[:,0]
+powerTraceData = waveformFile.iloc[:,2:]
+possibleKey = 255
+if not os.path.exists("KeyGraphs"):
+    os.mkdir("KeyGraphs")
+keyFile = open('key.txt','w')
+keys = ""
+# to parse the entire key
+for keyIndex in range(0,len(plaintextRow[0]),2):
+    # To get the nth byte of plaintext 
+    plainTextBytes = []
+    for index in range(0,no_of_traces):
+        byte = plaintextRow[index][keyIndex] + plaintextRow[index][keyIndex+1]
+        plainTextBytes.append(int(byte,16))
 
-# print("\nFirst byte of plaintexts.... This is the array containing first byte of all the plaintexts...\n")
-# print(firstBytes)
+    correlationMatrix = [[]]*possibleKey
+    power_model_matrix = [[]]*possibleKey
+    byteIndex = []
+    for k in range(0,possibleKey):
+        print("At Byte {number}, k = {kIndex}".format(number=int(keyIndex/2),kIndex=k))
+        byteIndex.append(hex(k))
+        leaky_sbox_output_value_array = []
+        hamming_weight_of_leaky_sbox_bytes = []
+        for byte_pos in range(0,no_of_traces):
+            byte_now = plainTextBytes[byte_pos] ^ k
+            Sbox_output_leaky_value = Sbox[byte_now]
+            leaky_sbox_output_value_array.append(Sbox_output_leaky_value)
+            hamming_weight_of_leaky_sbox_bytes.append(hw(leaky_sbox_output_value_array[byte_pos]))
+        power_model_matrix[k] = hamming_weight_of_leaky_sbox_bytes
 
-# Now, let us try to build a model for all possible values of key byte using the plaintext inputs...
+        correlation_values = []
+        for x in range(1,powerTraceData.shape[1]-1):
+            correlation,pvalue = scipy.stats.pearsonr(power_model_matrix[k],powerTraceData.iloc[:,x])
+            correlation_values.append(correlation)
+        correlationMatrix[k] = correlation_values
 
-# Let a given first plaintext byte be denoted as x... For each first plaintext byte x, try to calculate Sbox(x xor k) where k is the first key byte...
-# For example, let us build a model for k = 0x20...
+    maxCorrelation = []
+    for keyBytePossible in range(0,len(correlationMatrix)):
+        correlationRow = correlationMatrix[keyBytePossible]
+        highestCorrelation = max(max(correlationRow),abs(min(correlationRow)))
+        maxCorrelation.append(highestCorrelation)
 
-k = 0x20
-leaky_sbox_output_value_array = []
-print("\n\nValue of Leaky Sbox values for first plaintext byte....\n")
+    maxCorr = max(maxCorrelation)
+    key = 0
+    maxIndex = 0
+    maxValue = max(maxCorrelation)
+    maxIndex = maxCorrelation.index(maxValue)
+    key = hex(maxIndex)
+    print("KeyByte is " + key + " with correlation of " + str(maxCorr))
+    keys= keys + key + " "
+    plt.figure(figsize=(10,6))
+    plt.plot(byteIndex,maxCorrelation,label='Correlation Graph for key number' + str(keyIndex))
+    plt.plot(maxIndex, maxCorr, 'ro', markersize=10, label='Max Correlation')  # 'ro' for red circle
+    plt.title("Graph for Key Byte {number}".format(number=keyIndex))
+    plt.annotate(key, xy=(maxIndex, maxValue), xytext=(maxIndex, maxValue),
+             textcoords='offset points', ha='center', va='bottom')
+    plt.xlabel("Key in Hexa")
+    plt.ylabel("Correlation Value")
+    currentDir = os.getcwd()
+    saveLocation = "{currDir}/KeyGraphs/Key{number}.png".format(currDir = currentDir,number=keyIndex)
+    plt.savefig(saveLocation,dpi=300)
+    plt.close()
+keyFile.write(keys)
 
-# Write Code to fill up the leaky_sbox_output_value_array with Sbox(x xor k).
-
-for byte_pos in range(0,no_of_traces):
-    byte_now = firstBytes[byte_pos] ^ k
-    Sbox_output_leaky_value = Sbox[byte_now]
-    leaky_sbox_output_value_array.append(Sbox_output_leaky_value)
-
-# print(leaky_sbox_output_value_array)
-
-# Now, we know these are the leaky values... How do these values leak through the power side-channel... They leak as their hamming weights... So, we need to
-# calculate the hamming weight of these leaky values...
-
-hamming_weight_of_leaky_sbox_bytes = []
-print("\n\nHamming Weight of Leaky Sbox values for first plaintext byte....\n")
-
-# Write Code to fill up the hamming_weight_of_leaky_sbox_bytes with HW(Sbox(x xor k))...
-
-for byte in range(0,no_of_traces):
-    hamming_weight_of_leaky_sbox_bytes.append(hw(leaky_sbox_output_value_array[byte]))
-
-# print(hamming_weight_of_leaky_sbox_bytes)
-
-# hamming_weight_of_leaky_sbox_bytes is your hypothetical Power Model for k = 20...
-
-# But, as an attacker you do not know what is the value of k, then you try to build a model for all values of k...
-
-# Write Code to build a hypothetical power model for all values of k... This is called a power model matrix...
-
-no_of_possible_values_of_key_byte = 256
-power_model_matrix = [[]]*no_of_possible_values_of_key_byte
-
-for key_byte_guess in range(0,no_of_possible_values_of_key_byte):
-    k = key_byte_guess
-
-    leaky_sbox_output_value_array = []
-    for byte_pos in range(0,no_of_traces):
-        byte_now = firstBytes[byte_pos] ^ k
-        Sbox_output_leaky_value = Sbox[byte_now]
-        leaky_sbox_output_value_array.append(Sbox_output_leaky_value)
-
-    hamming_weight_of_leaky_sbox_bytes = []
-    for byte in range(0,no_of_traces):
-        hamming_weight_of_leaky_sbox_bytes.append(hw(leaky_sbox_output_value_array[byte]))
-
-    power_model_matrix[key_byte_guess] = hamming_weight_of_leaky_sbox_bytes
-
-# print(power_model_matrix)
-
-# Now, we need to match the power model for each key byte guess, with the actual power trace...
-
-# Here, we generate an actual power trace through simulations...
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-noise_standard_deviation = 0.05
-
-def generate_random_noise():
-    n = random.normalvariate(0,noise_standard_deviation)
-    return n
-
-def generate_trace(trace_input):
-    low_value = 0
-    high_value = 8
-    noisy_trace = []
-    for i in range(0,len(trace_input)):
-        trace_point = (trace_input[i]-float(low_value))/high_value + generate_random_noise()
-        noisy_trace.append(trace_point)
-
-    return noisy_trace
-
-correct_key_byte = 21
-correct_ideal_trace = power_model_matrix[correct_key_byte]
-actual_power_trace = generate_trace(correct_ideal_trace)
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-# The actual power trace contains the trace corresponding to the Sbox operation... This corresponds to the key byte = 21...
-# Now, lets try to match the hypothetical power model for all key bytes with the actual power trace...and see which one matches the best...
-# Here, we use the pearson correlation coefficient to calculate relation between the hypothetical power model and actual trace...
-# Use scipy.stats.pearsonr(vector1, vector2) to compute correlation between two vectors...
-
-correlation_values = []
-
-# Write code to compute correlation between model trace of every possible value of key byte and the actual trace and fill
-# up the correlation_values array...
-
-for key_byte_guess in range(0,no_of_possible_values_of_key_byte):
-    model_trace = power_model_matrix[key_byte_guess]
-    corr_value = scipy.stats.pearsonr(actual_power_trace,model_trace)
-    correlation_values.append(corr_value[0])
-
-# Here, we are sorting the correlation values and identifying which key byte has the largest correlation...
-
-sorting_order = np.argsort(correlation_values)
-sorting_order = sorting_order[::-1]
-
-# Here, we identify the rank of the correct key byte...
-
-rank_of_correct_key_byte = np.where(sorting_order == correct_key_byte)
-
-print("No. of Traces: {}".format(no_of_traces))
-print("Rank of Correct Key Byte: {}".format(rank_of_correct_key_byte[0]+1))
-
-################################################################# Visualization Code #################################################
-
-# Here, I am plotting correlation values for all key bytes...
-
-plot.figure(1)
-
-x_index = []
-for i in range(0,no_of_possible_values_of_key_byte):
-  x_index.append(i)
-  
-plot.plot(x_index,correlation_values)
-plot.show()
