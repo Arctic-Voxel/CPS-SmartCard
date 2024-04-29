@@ -16,6 +16,7 @@ Required packages can be found under requirements.txt
 Correlation Power Analysis (CPA) is an efficient technique for recovering secret key bytes of an algorithm by analyzing the power traces of its execution. This experiment focuses on AES-128 encryption.
 ### AES
 ![alt text](original_flow.png)
+
 AES utilises four methods for encryption:
 - SubBytes
 - ShiftRows
