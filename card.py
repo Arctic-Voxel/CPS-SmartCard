@@ -56,7 +56,8 @@ def totp(key, date, time_step=30, digits=6, digest='sha1'):
 
 
 def get_station_letter_textfile_value():
-    """ Returns the station letter found in the text document, else create a blank text file. Includes edge cases regarding file and invalid station names. """
+    """ Returns the station letter found in the text document otherwise create a blank text file.
+    This includes edge cases regarding files and invalid station names. """
     try:
         with open("Bus_Station.txt", 'r') as station_doc:
             station = station_doc.read()
@@ -71,12 +72,15 @@ def get_station_letter_textfile_value():
 
 
 def get_topup_textfile_value():
-    """ Returns the top value found in the text document, else create a blank text file. Includes edge cases regarding file and invalid characters. """
+    """ Returns the top value found in the text document; otherwise, create a blank text file.
+    Includes edge cases regarding files and invalid characters. """
     try:
         with open("top_up_value.txt", 'r') as top_up_doc:
             top_up = top_up_doc.read()
             if top_up.isdigit():
                 return int(top_up)
+            else:
+                exit("Unable to gather topup value.")
     except FileNotFoundError:
         with open("top_up_value.txt", 'x'):
             pass
@@ -196,7 +200,7 @@ def init_reader():
 
 
 def check_balance(reader):
-    """ Read value of eight sector. """
+    """ Read value of block 8. """
     connection = reader.createConnection()
     try:
         connection.connect()
@@ -309,7 +313,7 @@ def get_topup_input(max_value):
 
 def get_station_input():
     """ Get station input value with checks."""
-    chosen_station = input("Please enter the station you wish to use: ")
+    chosen_station = input("Please enter the station you wish to use: ").upper()
     if chosen_station in STATION_NAMES:
         return chosen_station
     else:
@@ -317,7 +321,7 @@ def get_station_input():
 
 
 def max_top_up_value(reader):
-    """ Get max top up value based on current card value. """
+    """ Get max top-up value based on current card value. """
     current_value = check_balance(reader)
     current_value = current_value.split(' ')
     for each in current_value:
@@ -388,9 +392,9 @@ def write_transaction_history(reader, action, value, station_action):
     cmd_roll_back = [0xFF, 0xD6, 0x00, 0x0A, 0x10]
     cmd_transact_content = []
     if action == 'tap in':
-        cmd_transact_content.append(0x00)
+        cmd_transact_content.append(0x00)  # Debit
     elif action == 'tap out':
-        cmd_transact_content.append(0x01)
+        cmd_transact_content.append(0x01)  # Credit
 
     hex_value = hex(value)
     pad_len = 10 - len(hex_value)
@@ -411,6 +415,7 @@ def write_transaction_history(reader, action, value, station_action):
     cmd_transact_content.append(int(new_time[4:6], 16))
     cmd_transact_content.append(int(new_time[6:8], 16))
     cmd_transact_content.append(int(new_time[8:10], 16))
+    #Timestamp history
     totpvalue = totp('CPSSmartCard', int(hex(calendar.timegm(date.timetuple()))[2:], 16), 30, 6, 'sha1')
     totpvalue = hex(int(totpvalue))[2:]
     totp_pad_len = 6 - len(totpvalue)
@@ -546,10 +551,10 @@ def main():
                             transaction_action, transaction_fare, transaction_station, epoch_decimal = get_transaction(
                                 reader)
                             if transaction_action == 'tap out':
-                                print("Double debit detected, last full fare charged, continuing transaction.")
                                 debit(reader, charge_fare)
                                 write_transaction_history(reader, 'tap in', charge_fare, tap_in_station)
                             if transaction_action == 'tap in':
+                                print("Double debit detected, last full fare charged, continuing transaction.")
                                 debit(reader, charge_fare)
                                 write_transaction_history(reader, 'tap in', charge_fare, tap_in_station)
                         else:
@@ -558,6 +563,7 @@ def main():
                     print("Invalid station name provided.")
             case '5':
                 tap_out_station = get_station_input()
+
                 if tap_out_station:
                     balance = process_value(check_balance(reader))
                     verified_status = verify_transaction_history(reader)
@@ -626,12 +632,13 @@ args = parser.parse_args()
 reader = init_reader()
 
 if args.new:
+    print("Initializing card.")
     initialise(reader)
 
 if args.topup:
     top_up_value = get_topup_textfile_value()
     max_value_for_top = max_top_up_value(reader)
-    if max_value_for_top < top_up_value:
+    if max_value_for_top > top_up_value:
         top_up(reader, top_up_value)
     else:
         print(f"Unable to top up amount. Value exceeds limit. You may only top you {max_value_for_top}.")
@@ -657,10 +664,10 @@ if args.tap_in:
                 transaction_action, transaction_fare, transaction_station, epoch_decimal = get_transaction(
                     reader)
                 if transaction_action == 'tap out':
-                    print("Double debit detected, last full fare charged, continuing transaction.")
                     debit(reader, charge_fare)
                     write_transaction_history(reader, 'tap in', charge_fare, args_tap_in_station)
                 if transaction_action == 'tap in':
+                    print("Double debit detected, last full fare charged, continuing transaction.")
                     debit(reader, charge_fare)
                     write_transaction_history(reader, 'tap in', charge_fare, args_tap_in_station)
             else:
@@ -712,7 +719,7 @@ if args.tap_out:
                 else:
                     top_up(reader, int(refund_val))
                     write_transaction_history(reader, 'tap out', int(refund_val), args_tap_out_station)
+            else:
+                print("Card tampering or tearing detected. Please reinitialize card.")
 if args.CLI:
     main()
-
-# get_transaction(reader)
